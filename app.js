@@ -25,5 +25,6 @@ app.use('/api/productos', productoRoutes); // Ruta de productos
 app.use('/api/facturas', facturaRoutes); // Ruta de facturas
 app.use('/api/auth', authRoutes); // Ruta de autenticación
 app.use('/api/categorias', categoriaRoutes);
+app.use('api/providers', proveedorRoutes);
 
 module.exports = app;
