@@ -22,6 +22,7 @@ exports.crearProducto = async (req, res) => {
     }
 };
 
+
 // Obtener un producto por ID
 exports.obtenerProductoPorId = async (req, res) => {
     try {

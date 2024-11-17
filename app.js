@@ -5,6 +5,7 @@ const facturaRoutes = require('./src/routes/facturaRoutes');
 const ventaRoutes = require('./src/routes/ventaRoutes');
 const authRoutes = require('./src/routes/authRoutes');
 const categoriaRoutes = require('./src/routes/categoriaRoutes');
+const proveedorRoutes = require('./src/routes/proveedorRoutes');
 
 const app = express();
 
@@ -25,6 +26,6 @@ app.use('/api/productos', productoRoutes); // Ruta de productos
 app.use('/api/facturas', facturaRoutes); // Ruta de facturas
 app.use('/api/auth', authRoutes); // Ruta de autenticación
 app.use('/api/categorias', categoriaRoutes);
-app.use('api/providers', proveedorRoutes);
+app.use('/api/proveedores', proveedorRoutes);
 
 module.exports = app;

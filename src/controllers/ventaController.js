@@ -60,3 +60,29 @@ exports.eliminarVenta = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
+
+exports.filtrarVentas = async (req, res) => {
+    try {
+        const { tipoFiltro, fechaDesde, fechaHasta, estado } = req.query;
+
+        let query = {};
+
+        if (tipoFiltro === 'Fecha') {
+            if(fechaDesde) {
+                query.fecha = { $gte: new Date(fechaDesde) };
+            }
+            if(fechaHasta) {
+                query.fecha = { $lte: new Date(fechaHasta) };
+            }
+
+        }
+        if(tipoFiltro === 'Estado' && estado) {
+            query.estado = estado;
+        }
+
+        const ventas = await Venta.find(query);
+        res.json(ventas);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
