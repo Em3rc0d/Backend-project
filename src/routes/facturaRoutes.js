@@ -2,6 +2,9 @@ const express = require('express');
 const router = express.Router();
 const facturaController = require('../controllers/facturaController');
 
+// Obtener facturas con filtro
+router.get('/filter', facturaController.filtrarFacturas);
+
 // Obtener todas las facturas
 router.get('/', facturaController.obtenerFacturas);
 
