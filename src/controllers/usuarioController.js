@@ -44,3 +44,19 @@ exports.crearUsuario = async (req, res) => {
         res.status(400).json({ message: 'Error al crear usuario', error: error.message });
     }
 };
+
+exports.obtenerUsuarioPorEmail = async (req, res) => {
+    try {
+        const email = req.params.email; // Obtener el email del parámetro de la ruta
+        const usuario = await Usuario.findOne({ email }).select('-password');  // Buscar usuario por email
+
+        if (!usuario) {
+            return res.status(404).json({ message: 'Usuario no encontrado' });
+        }
+
+        res.status(200).json(usuario);  // Devolver el usuario encontrado
+    } catch (error) {
+        res.status(500).json({ message: 'Error al obtener usuario', error: error.message });
+    }
+}
+

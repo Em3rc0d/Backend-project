@@ -4,7 +4,7 @@ const authController = require('../controllers/authController');
 const { verifyToken, verifyRole } = require('../middleware/authMiddleware');
 
 // Rutas de autenticación
-router.post('/login', authController.login);
-router.post('/register', verifyRole(['admin']), authController.register);
+router.post('/login', authController.login);  // Login de usuario
+router.post('/register', verifyToken, verifyRole(['admin']), authController.register);  // Registro de usuario (solo admin puede)
 
 module.exports = router;

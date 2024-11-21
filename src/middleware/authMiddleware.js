@@ -11,7 +11,7 @@ const MESSAGES = {
 
 // Middleware para verificar el token
 const verifyToken = (req, res, next) => {
-    const token = req.headers['authorization']?.replace('Bearer ', '');
+    const token = req.headers['authorization']?.replace('Bearer ', '');  // Obtener el token del encabezado
     if (!token) {
         return res.status(403).json({ message: MESSAGES.TOKEN_MISSING });
     }
@@ -21,7 +21,7 @@ const verifyToken = (req, res, next) => {
             return res.status(401).json({ message: MESSAGES.TOKEN_INVALID });
         }
 
-        req.userId = decoded.id; // Almacenar el ID del usuario
+        req.userId = decoded.id; // Almacenar el ID del usuario decodificado
         next();
     });
 };
@@ -30,7 +30,7 @@ const verifyToken = (req, res, next) => {
 const verifyRole = (roles) => {
     return async (req, res, next) => {
         try {
-            const userId = req.userId; // Usar el userId del middleware anterior
+            const userId = req.userId;  // Usar el ID de usuario del middleware anterior
 
             // Buscar usuario en la base de datos
             const user = await Usuario.findById(userId);
@@ -38,7 +38,7 @@ const verifyRole = (roles) => {
                 return res.status(403).json({ message: MESSAGES.ROLE_INSUFFICIENT });
             }
 
-            req.userRol = user.rol; // Almacenar rol del usuario
+            req.userRol = user.rol; // Almacenar el rol del usuario
             next();
         } catch (error) {
             console.error("Error en verifyRole:", error);
@@ -47,5 +47,4 @@ const verifyRole = (roles) => {
     };
 };
 
-// Exportar las funciones
 module.exports = { verifyToken, verifyRole };
