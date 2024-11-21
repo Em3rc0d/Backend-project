@@ -1,8 +1,9 @@
 const Factura = require('../models/factura');
 
+// Filtrar facturas con parámetros opcionales
 exports.filtrarFacturas = async (req, res) => {
     try {
-        const { fechaInicio, fechaFin, cliente, montoMinimo, montoMaximo, estado } = req.query;
+        const { fechaInicio, fechaFin, cliente, montoMinimo, montoMaximo, estado, pagina = 1, limite = 10 } = req.query;
 
         let query = {};
 
@@ -38,24 +39,26 @@ exports.filtrarFacturas = async (req, res) => {
             query.estado = estado; // Coincidencia exacta con el estado
         }
 
-        // Buscar las facturas con el filtro aplicado
-        const facturas = await Factura.find(query);
+        // Paginación
+        const skip = (pagina - 1) * limite;
+        const facturas = await Factura.find(query)
+            .skip(skip)
+            .limit(limite);
 
         // Retornar las facturas que cumplen con los filtros
         res.json(facturas);
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        res.status(500).json({ message: 'Error al filtrar las facturas', error: error.message });
     }
 };
-
 
 // Obtener todas las facturas
 exports.obtenerFacturas = async (req, res) => {
     try {
         const facturas = await Factura.find();
-        res.json(facturas);
+        res.status(200).json(facturas);
     } catch (error) {
-        res.status(500).json({ message: 'Error al obtener las facturas', error });
+        res.status(500).json({ message: 'Error al obtener las facturas', error: error.message });
     }
 };
 
@@ -66,20 +69,27 @@ exports.obtenerFacturaPorId = async (req, res) => {
         if (!factura) {
             return res.status(404).json({ message: 'Factura no encontrada' });
         }
-        res.json(factura);
+        res.status(200).json(factura);
     } catch (error) {
-        res.status(500).json({ message: 'Error al obtener la factura', error });
+        res.status(500).json({ message: 'Error al obtener la factura', error: error.message });
     }
 };
 
-// Crear una nueva factura
+// Crear factura
 exports.crearFactura = async (req, res) => {
     try {
+        const { ventaId, productos, total, cliente, direccion, ruc, telefono } = req.body;
+
+        // Verificar que todos los campos requeridos estén presentes
+        if (!ventaId || !productos || !total || !cliente || !direccion || !ruc || !telefono) {
+            return res.status(400).json({ message: 'Faltan datos requeridos' });
+        }
+
         const nuevaFactura = new Factura(req.body);
         const facturaGuardada = await nuevaFactura.save();
         res.status(201).json(facturaGuardada);
     } catch (error) {
-        res.status(400).json({ message: 'Error al crear la factura', error });
+        res.status(400).json({ message: 'Error al crear la factura', error: error.message });
     }
 };
 
@@ -90,9 +100,9 @@ exports.actualizarFactura = async (req, res) => {
         if (!factura) {
             return res.status(404).json({ message: 'Factura no encontrada' });
         }
-        res.json(factura);
+        res.status(200).json(factura);
     } catch (error) {
-        res.status(400).json({ message: 'Error al actualizar la factura', error });
+        res.status(400).json({ message: 'Error al actualizar la factura', error: error.message });
     }
 };
 
@@ -103,8 +113,8 @@ exports.eliminarFactura = async (req, res) => {
         if (!factura) {
             return res.status(404).json({ message: 'Factura no encontrada' });
         }
-        res.json({ message: 'Factura eliminada con éxito' });
+        res.status(200).json({ message: 'Factura eliminada con éxito' });
     } catch (error) {
-        res.status(500).json({ message: 'Error al eliminar la factura', error });
+        res.status(500).json({ message: 'Error al eliminar la factura', error: error.message });
     }
 };
