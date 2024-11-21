@@ -32,4 +32,8 @@ app.use('/api/categorias', verifyToken, categoriaRoutes);
 app.use('/api/proveedores', verifyToken, proveedorRoutes);
 app.use('/api/usuarios', verifyToken, usuarioRoutes);
 
+app.get('/', (req, res) => {
+    res.send('API en funcionamiento');
+});
+
 module.exports = app;
