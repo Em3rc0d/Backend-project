@@ -14,26 +14,37 @@ exports.obtenerVentas = async (req, res) => {
 
 // Crear una nueva venta con verificación de stock
 exports.crearVenta = async (req, res) => {
-    const { productos, cliente } = req.body;
+    const { productos, cliente, fecha, estado } = req.body;
 
-    // Validar que los productos y el cliente estén presentes
-    if (!productos || productos.length === 0) {
-        return res.status(400).json({ message: "La lista de productos no puede estar vacía." });
+    // Validar que cliente, productos y su estructura sean correctos
+    if (!cliente || !productos || !Array.isArray(productos) || productos.length === 0) {
+        return res.status(400).json({
+            message: "Datos incompletos: cliente o productos faltantes o con formato incorrecto.",
+        });
     }
+
+    // Sanitizar productos para asegurar que solo procesamos lo necesario
+    const productosSanitizados = productos.map(({ productoId, cantidad }) => ({
+        productoId,
+        cantidad,
+    }));
 
     const session = await mongoose.startSession();
     session.startTransaction();
 
     try {
-        // Lista para almacenar los detalles de productos
         const detalleProductos = [];
         let total = 0;
 
-        for (const item of productos) {
+        for (const item of productosSanitizados) {
+            // Validar estructura de producto
+            if (!item.productoId || !item.cantidad || item.cantidad <= 0) {
+                throw new Error("Cada producto debe tener un ID válido y una cantidad mayor a 0.");
+            }
+
             // Buscar producto en la base de datos
             const producto = await Producto.findById(item.productoId).session(session);
 
-            // Validar existencia del producto
             if (!producto) {
                 throw new Error(`Producto con ID ${item.productoId} no encontrado.`);
             }
@@ -42,11 +53,11 @@ exports.crearVenta = async (req, res) => {
             if (producto.cantidad_stock < item.cantidad) {
                 throw new Error(
                     `Stock insuficiente para el producto "${producto.nombre}". 
-                     Disponible: ${producto.cantidad_stock}, Requerido: ${item.cantidad}.`
+                    Disponible: ${producto.cantidad_stock}, Requerido: ${item.cantidad}.`
                 );
             }
 
-            // Calcular subtotal y reducir el stock
+            // Calcular subtotal y reducir stock
             const subtotal = producto.precio_unitario * item.cantidad;
             total += subtotal;
             producto.cantidad_stock -= item.cantidad;
@@ -54,46 +65,46 @@ exports.crearVenta = async (req, res) => {
             // Guardar cambios en el producto
             await producto.save({ session });
 
-            // Agregar el detalle del producto
+            // Agregar al detalle de productos
             detalleProductos.push({
-                productoId: producto._id,
                 nombre: producto.nombre,
+                productoId: producto._id,
                 precio_unitario: producto.precio_unitario,
                 cantidad: item.cantidad,
                 subtotal,
             });
         }
 
-        // Crear la venta
+        // Crear y guardar la venta
         const nuevaVenta = new Venta({
             cliente,
             productos: detalleProductos,
             total,
+            fecha: fecha || new Date(), // Usa la fecha proporcionada o la actual
+            estado: estado || 'pendiente', // Usa el estado proporcionado o un valor por defecto
         });
 
-        // Guardar la venta en la base de datos
         const ventaGuardada = await nuevaVenta.save({ session });
 
-        // Confirmar la transacción
         await session.commitTransaction();
         session.endSession();
 
-        res.status(201).json({
+        return res.status(201).json({
             message: "Venta registrada exitosamente.",
             venta: ventaGuardada,
         });
     } catch (error) {
-        // Revertir la transacción en caso de error
+        // Revertir transacción en caso de error
         await session.abortTransaction();
         session.endSession();
 
-        res.status(400).json({
+        console.error("Error al registrar la venta:", error);
+        return res.status(400).json({
             message: "Error al registrar la venta.",
             error: error.message,
         });
     }
 };
-
 
 // Obtener venta por ID
 exports.obtenerVentaPorId = async (req, res) => {

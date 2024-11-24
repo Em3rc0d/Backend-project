@@ -4,7 +4,7 @@ const ProductoSchema = new mongoose.Schema({
     nombre: { 
         type: String, 
         required: [true, 'El nombre del producto es obligatorio.'], 
-        unique: true // Garantiza que los nombres sean únicos
+        unique: true // Garantiza que los nombres sean únicos en la base de datos
     },
     precio_unitario: { 
         type: Number, 
@@ -27,13 +27,7 @@ const ProductoSchema = new mongoose.Schema({
     },
 });
 
-// Crear un índice único en el campo `nombre` para evitar duplicados en la base de datos
+// Crear un índice único en el campo `nombre`
 ProductoSchema.index({ nombre: 1 }, { unique: true });
-
-ProductoSchema.path('nombre').validate(async (value) => {
-    const count = await mongoose.models.Producto.countDocuments({ nombre: value });
-    return count === 0;
-}, 'El producto con el nombre "{VALUE}" ya existe.');
-
 
 module.exports = mongoose.model('Producto', ProductoSchema);
