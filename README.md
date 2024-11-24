@@ -1,75 +1,100 @@
-🚀 Gestión de Inventarios
-Este es un sistema de gestión de inventarios que permite gestionar ventas, productos, facturas, usuarios, categorías y proveedores. El proyecto utiliza Node.js, Express y MongoDB como base de datos, y JWT para la autenticación de usuarios.
+# 🚀 Gestión de Inventarios
 
-📋 Descripción
-Este proyecto tiene como objetivo proporcionar una interfaz de administración para gestionar un inventario de productos y registrar transacciones de ventas. Los usuarios pueden:
+Este sistema permite gestionar ventas, productos, facturas, usuarios, categorías y proveedores. Está desarrollado con **Node.js**, **Express**, y utiliza **MongoDB Atlas** como base de datos. La autenticación de usuarios se realiza mediante **JWT (JSON Web Token)** para garantizar la seguridad.
 
-Crear productos
-Registrar ventas
-Emitir facturas
-Gestionar proveedores y categorías de productos
-Además, la autenticación de usuarios se realiza mediante JWT (JSON Web Token), lo que permite una seguridad eficiente en las rutas protegidas.
+## 📋 Descripción
 
-🔧 Tecnologías
-Este proyecto está construido con las siguientes tecnologías:
+El proyecto ofrece una solución robusta para la administración de inventarios y registro de transacciones de ventas. Entre sus funcionalidades se encuentran:
 
-Node.js: Plataforma de ejecución para el backend.
-Express: Framework web para Node.js.
-MongoDB: Base de datos NoSQL para almacenar los datos.
-JWT: JSON Web Token para la autenticación de usuarios.
-Bcrypt: Librería para el hash de contraseñas.
-dotenv: Gestión de variables de entorno.
-Nodemon: Herramienta para reiniciar el servidor durante el desarrollo.
-📥 Instalación
+- **Gestión de productos:** creación, edición y eliminación.
+- **Registro de ventas:** seguimiento detallado de transacciones.
+- **Emisión de facturas:** registro y consulta.
+- **Control de proveedores y categorías.**
+- **Autenticación segura:** uso de tokens para proteger rutas sensibles.
+
+## 🔧 Tecnologías
+
+- **Node.js**: Plataforma de ejecución para el backend.
+- **Express**: Framework web para Node.js.
+- **MongoDB Atlas**: Base de datos NoSQL.
+- **JWT**: Seguridad y autenticación.
+- **Bcrypt**: Hash seguro de contraseñas.
+- **Dotenv**: Gestión de variables de entorno.
+- **Vercel**: Hosting del backend.
+
+## 📥 Instalación
+
 1. Clona el repositorio:
-bash
-Copiar código
-git clone https://github.com/Em3rc0d/gestion-inventarios.git
-2. Instala las dependencias:
-bash
-Copiar código
-cd gestion-inventarios
-npm install
-3. Crea un archivo .env en la raíz del proyecto con la siguiente configuración:
-env
-Copiar código
-MONGO_URI=mongodb://localhost:27017/gestion_inventarios
-PORT=3000
-JWT_SECRET=tu_clave_secreta
-4. Inicia el servidor:
-Para desarrollo:
-bash
-Copiar código
-npm run dev
-Para producción:
-bash
-Copiar código
-npm start
-🛣️ Rutas
-Autenticación
-POST /api/auth/login: Inicia sesión y devuelve un JWT.
-POST /api/auth/register: Registra un nuevo usuario.
-Productos
-GET /api/productos: Obtiene todos los productos.
-POST /api/productos: Crea un nuevo producto.
-Ventas
-GET /api/ventas: Obtiene todas las ventas.
-POST /api/ventas: Crea una nueva venta.
-Facturas
-GET /api/facturas: Obtiene todas las facturas.
-POST /api/facturas: Crea una nueva factura.
-Proveedores
-GET /api/proveedores: Obtiene todos los proveedores.
-POST /api/proveedores: Crea un nuevo proveedor.
-Categorías
-GET /api/categorias: Obtiene todas las categorías.
-POST /api/categorias: Crea una nueva categoría.
-🔒 Middleware de Autenticación
-Para proteger las rutas de la API, se utiliza JWT. Es necesario enviar el token JWT en el encabezado Authorization para acceder a las rutas protegidas.
+   ```bash
+   git clone https://github.com/Em3rc0d/gestion-inventarios.git
+   cd gestion-inventarios
+   ```
 
-Ejemplo de cómo incluir el token en la solicitud:
-bash
-Copiar código
+2. Instala las dependencias:
+   ```bash
+   npm install
+   ```
+
+3. Configura el archivo `.env`:
+   ```env
+   MONGO_URI=mongodb+srv://<usuario>:<contraseña>@cluster.mongodb.net/<nombreBaseDatos>?retryWrites=true&w=majority
+   PORT=3000
+   JWT_SECRET=tu_clave_secreta
+   ```
+
+4. Inicia el servidor:
+   - Modo desarrollo:
+     ```bash
+     npm run dev
+     ```
+   - Producción:
+     ```bash
+     npm start
+     ```
+
+## 🛣️ Rutas
+
+### Autenticación
+- `POST /api/auth/login`: Inicia sesión y devuelve un token JWT.
+- `POST /api/auth/register`: Registra un nuevo usuario.
+
+### Productos
+- `GET /api/productos`: Lista todos los productos.
+- `POST /api/productos`: Crea un nuevo producto.
+
+### Ventas
+- `GET /api/ventas`: Obtiene todas las ventas.
+- `POST /api/ventas`: Registra una nueva venta.
+
+### Facturas
+- `GET /api/facturas`: Lista todas las facturas.
+- `POST /api/facturas`: Genera una nueva factura.
+
+### Proveedores
+- `GET /api/proveedores`: Lista todos los proveedores.
+- `POST /api/proveedores`: Agrega un nuevo proveedor.
+
+### Categorías
+- `GET /api/categorias`: Lista todas las categorías.
+- `POST /api/categorias`: Agrega una nueva categoría.
+
+### Usuarios
+- `GET /api/usuarios`: Lista todos los usuarios (requiere permisos).
+
+## 🔒 Middleware de Autenticación
+
+Las rutas protegidas requieren un token JWT. Incluye el token en el encabezado `Authorization`:
+```bash
 Authorization: Bearer <token_jwt>
-🤝 Contribuciones
-Si deseas contribuir a este proyecto, por favor crea un pull request o abre un issue para discutir nuevas funcionalidades.
+```
+
+## 🌐 Hosting
+
+El backend está desplegado en **Vercel** para garantizar alta disponibilidad y rendimiento.
+
+## 🤝 Contribuciones
+
+Si deseas contribuir:
+1. Crea un fork del repositorio.
+2. Crea una rama para tu funcionalidad (`git checkout -b feature/nueva-funcionalidad`).
+3. Envía un pull request.
