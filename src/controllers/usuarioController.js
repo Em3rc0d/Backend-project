@@ -1,11 +1,12 @@
-const Usuario = require('../models/usuario');
+const { pool } = require('../config/database');
 
 // Obtener todos los usuarios
 exports.obtenerUsuarios = async (req, res) => {
     try {
-        const usuarios = await Usuario.find().select('-password'); // No devolver la contraseña por motivos de seguridad
-        res.status(200).json(usuarios);
+        const { rows } = await pool.query('SELECT id, nombre, email, rol FROM usuarios'); // No devolver la contraseña por seguridad
+        res.status(200).json(rows);
     } catch (error) {
+        console.error('Error al obtener usuarios:', error);
         res.status(500).json({ message: 'Error al obtener usuarios', error: error.message });
     }
 };
@@ -21,42 +22,40 @@ exports.crearUsuario = async (req, res) => {
 
     try {
         // Verificar si el email ya está en uso
-        const usuarioExistente = await Usuario.findOne({ email });
-        if (usuarioExistente) {
+        const { rows } = await pool.query('SELECT * FROM usuarios WHERE email = $1', [email]);
+        if (rows.length > 0) {
             return res.status(400).json({ message: 'El correo electrónico ya está registrado.' });
         }
 
         // Crear un nuevo usuario
-        const nuevoUsuario = new Usuario(req.body);
+        const { rows: nuevoUsuario } = await pool.query(
+            'INSERT INTO usuarios (nombre, email, password, rol) VALUES ($1, $2, $3, $4) RETURNING id, nombre, email, rol',
+            [nombre, email, password, rol]
+        );
 
-        // Guardar el nuevo usuario en la base de datos
-        const usuarioGuardado = await nuevoUsuario.save();
         res.status(201).json({
             message: 'Usuario creado exitosamente',
-            usuario: {
-                id: usuarioGuardado._id,
-                nombre: usuarioGuardado.nombre,
-                email: usuarioGuardado.email,
-                rol: usuarioGuardado.rol
-            }
+            usuario: nuevoUsuario[0]  // Devolver el usuario sin la contraseña
         });
     } catch (error) {
+        console.error('Error al crear usuario:', error);
         res.status(400).json({ message: 'Error al crear usuario', error: error.message });
     }
 };
 
+// Obtener un usuario por email
 exports.obtenerUsuarioPorEmail = async (req, res) => {
     try {
         const email = req.params.email; // Obtener el email del parámetro de la ruta
-        const usuario = await Usuario.findOne({ email }).select('-password');  // Buscar usuario por email
+        const { rows } = await pool.query('SELECT id, nombre, email, rol FROM usuarios WHERE email = $1', [email]);
 
-        if (!usuario) {
+        if (rows.length === 0) {
             return res.status(404).json({ message: 'Usuario no encontrado' });
         }
 
-        res.status(200).json(usuario);  // Devolver el usuario encontrado
+        res.status(200).json(rows[0]);  // Devolver el usuario encontrado sin la contraseña
     } catch (error) {
+        console.error('Error al obtener usuario:', error);
         res.status(500).json({ message: 'Error al obtener usuario', error: error.message });
     }
-}
-
+};

@@ -1,53 +1,54 @@
-const Factura = require('../models/factura');
+const { pool } = require('../config/database');
 
 // Filtrar facturas con parámetros opcionales
 exports.filtrarFacturas = async (req, res) => {
+    const { fechaInicio, fechaFin, cliente, montoMinimo, montoMaximo, estado, pagina = 1, limite = 10 } = req.query;
+
+    // Construir la consulta SQL
+    let query = 'SELECT * FROM facturas WHERE 1=1';
+    let params = [];
+
+    // Filtro por Fecha
+    if (fechaInicio) {
+        query += ' AND fecha >= $' + (params.length + 1);
+        params.push(new Date(fechaInicio));
+    }
+    if (fechaFin) {
+        query += ' AND fecha <= $' + (params.length + 1);
+        params.push(new Date(fechaFin));
+    }
+
+    // Filtro por Cliente
+    if (cliente) {
+        query += ' AND cliente ILIKE $' + (params.length + 1);
+        params.push(`%${cliente}%`);
+    }
+
+    // Filtro por Monto
+    if (montoMinimo) {
+        query += ' AND total >= $' + (params.length + 1);
+        params.push(parseFloat(montoMinimo));
+    }
+    if (montoMaximo) {
+        query += ' AND total <= $' + (params.length + 1);
+        params.push(parseFloat(montoMaximo));
+    }
+
+    // Filtro por Estado
+    if (estado) {
+        query += ' AND estado = $' + (params.length + 1);
+        params.push(estado);
+    }
+
+    // Paginación
+    query += ' LIMIT $' + (params.length + 1) + ' OFFSET $' + (params.length + 2);
+    params.push(limite, (pagina - 1) * limite);
+
     try {
-        const { fechaInicio, fechaFin, cliente, montoMinimo, montoMaximo, estado, pagina = 1, limite = 10 } = req.query;
-
-        let query = {};
-
-        // Filtro por Fecha (si se proporciona fechaInicio o fechaFin)
-        if (fechaInicio || fechaFin) {
-            query.fecha = {};
-            if (fechaInicio) {
-                query.fecha.$gte = new Date(fechaInicio); // Fecha de inicio
-            }
-            if (fechaFin) {
-                query.fecha.$lte = new Date(fechaFin); // Fecha de fin
-            }
-        }
-
-        // Filtro por Cliente (si se proporciona cliente)
-        if (cliente) {
-            query.cliente = { $regex: cliente, $options: 'i' };  // Coincidencias parciales (sin distinguir mayúsculas/minúsculas)
-        }
-
-        // Filtro por Monto (si se proporcionan montoMinimo o montoMaximo)
-        if (montoMinimo || montoMaximo) {
-            query.total = {};
-            if (montoMinimo) {
-                query.total.$gte = parseFloat(montoMinimo); // Monto mínimo
-            }
-            if (montoMaximo) {
-                query.total.$lte = parseFloat(montoMaximo); // Monto máximo
-            }
-        }
-
-        // Filtro por Estado (si se proporciona estado)
-        if (estado) {
-            query.estado = estado; // Coincidencia exacta con el estado
-        }
-
-        // Paginación
-        const skip = (pagina - 1) * limite;
-        const facturas = await Factura.find(query)
-            .skip(skip)
-            .limit(limite);
-
-        // Retornar las facturas que cumplen con los filtros
-        res.json(facturas);
+        const { rows } = await pool.query(query, params);
+        res.status(200).json(rows);
     } catch (error) {
+        console.error('Error al filtrar las facturas:', error);
         res.status(500).json({ message: 'Error al filtrar las facturas', error: error.message });
     }
 };
@@ -55,9 +56,10 @@ exports.filtrarFacturas = async (req, res) => {
 // Obtener todas las facturas
 exports.obtenerFacturas = async (req, res) => {
     try {
-        const facturas = await Factura.find();
-        res.status(200).json(facturas);
+        const { rows } = await pool.query('SELECT * FROM facturas');
+        res.status(200).json(rows);
     } catch (error) {
+        console.error('Error al obtener las facturas:', error);
         res.status(500).json({ message: 'Error al obtener las facturas', error: error.message });
     }
 };
@@ -65,30 +67,34 @@ exports.obtenerFacturas = async (req, res) => {
 // Obtener una factura por ID
 exports.obtenerFacturaPorId = async (req, res) => {
     try {
-        const factura = await Factura.findById(req.params.id);
-        if (!factura) {
+        const { rows } = await pool.query('SELECT * FROM facturas WHERE id = $1', [req.params.id]);
+        if (rows.length === 0) {
             return res.status(404).json({ message: 'Factura no encontrada' });
         }
-        res.status(200).json(factura);
+        res.status(200).json(rows[0]);
     } catch (error) {
+        console.error('Error al obtener la factura:', error);
         res.status(500).json({ message: 'Error al obtener la factura', error: error.message });
     }
 };
 
 // Crear factura
 exports.crearFactura = async (req, res) => {
+    const { ventaId, productos, total, cliente, direccion, ruc, telefono } = req.body;
+
+    // Verificar que todos los campos requeridos estén presentes
+    if (!ventaId || !productos || !total || !cliente || !direccion || !ruc || !telefono) {
+        return res.status(400).json({ message: 'Faltan datos requeridos' });
+    }
+
     try {
-        const { ventaId, productos, total, cliente, direccion, ruc, telefono } = req.body;
-
-        // Verificar que todos los campos requeridos estén presentes
-        if (!ventaId || !productos || !total || !cliente || !direccion || !ruc || !telefono) {
-            return res.status(400).json({ message: 'Faltan datos requeridos' });
-        }
-
-        const nuevaFactura = new Factura(req.body);
-        const facturaGuardada = await nuevaFactura.save();
-        res.status(201).json(facturaGuardada);
+        const { rows } = await pool.query(
+            'INSERT INTO facturas (venta_id, productos, total, cliente, direccion, ruc, telefono) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
+            [ventaId, productos, total, cliente, direccion, ruc, telefono]
+        );
+        res.status(201).json(rows[0]);
     } catch (error) {
+        console.error('Error al crear la factura:', error);
         res.status(400).json({ message: 'Error al crear la factura', error: error.message });
     }
 };
@@ -96,12 +102,18 @@ exports.crearFactura = async (req, res) => {
 // Actualizar una factura existente
 exports.actualizarFactura = async (req, res) => {
     try {
-        const factura = await Factura.findByIdAndUpdate(req.params.id, req.body, { new: true });
-        if (!factura) {
+        const { rows } = await pool.query(
+            'UPDATE facturas SET venta_id = $1, productos = $2, total = $3, cliente = $4, direccion = $5, ruc = $6, telefono = $7 WHERE id = $8 RETURNING *',
+            [req.body.ventaId, req.body.productos, req.body.total, req.body.cliente, req.body.direccion, req.body.ruc, req.body.telefono, req.params.id]
+        );
+
+        if (rows.length === 0) {
             return res.status(404).json({ message: 'Factura no encontrada' });
         }
-        res.status(200).json(factura);
+
+        res.status(200).json(rows[0]);
     } catch (error) {
+        console.error('Error al actualizar la factura:', error);
         res.status(400).json({ message: 'Error al actualizar la factura', error: error.message });
     }
 };
@@ -109,12 +121,13 @@ exports.actualizarFactura = async (req, res) => {
 // Eliminar una factura
 exports.eliminarFactura = async (req, res) => {
     try {
-        const factura = await Factura.findByIdAndDelete(req.params.id);
-        if (!factura) {
+        const { rows } = await pool.query('DELETE FROM facturas WHERE id = $1 RETURNING *', [req.params.id]);
+        if (rows.length === 0) {
             return res.status(404).json({ message: 'Factura no encontrada' });
         }
         res.status(200).json({ message: 'Factura eliminada con éxito' });
     } catch (error) {
+        console.error('Error al eliminar la factura:', error);
         res.status(500).json({ message: 'Error al eliminar la factura', error: error.message });
     }
 };

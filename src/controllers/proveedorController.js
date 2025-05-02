@@ -1,11 +1,12 @@
-const Proveedor = require('../models/proveedor');
+const { pool } = require('../config/database');
 
 // Obtener todos los proveedores
 exports.obtenerProveedores = async (req, res) => {
     try {
-        const proveedores = await Proveedor.find().select('nombre direccion telefono email'); // Seleccionar campos relevantes
-        res.status(200).json(proveedores);
+        const { rows } = await pool.query('SELECT nombre, direccion, telefono, email FROM proveedores');
+        res.status(200).json(rows);
     } catch (error) {
+        console.error('Error al obtener proveedores:', error);
         res.status(500).json({ message: 'Error al obtener proveedores', error: error.message });
     }
 };
@@ -21,20 +22,23 @@ exports.crearProveedor = async (req, res) => {
 
     try {
         // Verificar si ya existe un proveedor con el mismo correo
-        const proveedorExistente = await Proveedor.findOne({ email });
-        if (proveedorExistente) {
+        const { rows } = await pool.query('SELECT * FROM proveedores WHERE email = $1', [email]);
+        if (rows.length > 0) {
             return res.status(400).json({ message: 'El correo electrónico ya está registrado para otro proveedor.' });
         }
 
         // Crear un nuevo proveedor
-        const nuevoProveedor = new Proveedor({ nombre, email, telefono, direccion });
-        const proveedorGuardado = await nuevoProveedor.save();
+        const { rows: nuevoProveedor } = await pool.query(
+            'INSERT INTO proveedores (nombre, email, telefono, direccion) VALUES ($1, $2, $3, $4) RETURNING *',
+            [nombre, email, telefono, direccion]
+        );
 
         res.status(201).json({
             message: 'Proveedor creado exitosamente',
-            proveedor: proveedorGuardado
+            proveedor: nuevoProveedor[0]
         });
     } catch (error) {
+        console.error('Error al crear proveedor:', error);
         res.status(500).json({ message: 'Error al crear proveedor', error: error.message });
     }
 };

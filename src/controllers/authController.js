@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
-const Usuario = require('../models/usuario');
+const { pool } = require('../config/database'); // <-- Usamos pool ahora
 require('dotenv').config();
 
 // Función para iniciar sesión
@@ -12,17 +12,21 @@ exports.login = async (req, res) => {
     }
 
     try {
-        const user = await Usuario.findOne({ email });
+        const { rows } = await pool.query('SELECT * FROM usuarios WHERE email = $1', [email]);
+        const user = rows[0];
+        console.log('Usuario encontrado:', user);
+
         if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
 
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) return res.status(401).json({ message: 'Credenciales inválidas' });
 
         // Generar el token con el ID del usuario
-        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+        const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
 
         res.status(200).json({ token });
     } catch (error) {
+        console.error('Error al iniciar sesión:', error);
         res.status(500).json({ message: 'Error en el servidor', error: error.message });
     }
 };
@@ -31,28 +35,29 @@ exports.login = async (req, res) => {
 exports.register = async (req, res) => {
     const { nombre, email, password, rol } = req.body;
 
-    // Validación de campos obligatorios
     if (!nombre || !email || !password || !rol) {
         return res.status(400).json({ message: 'Todos los campos son obligatorios (nombre, email, password, rol).' });
     }
 
     try {
         // Verificar si el email ya está registrado
-        const usuarioExistente = await Usuario.findOne({ email });
-        if (usuarioExistente) {
+        const { rows } = await pool.query('SELECT * FROM usuarios WHERE email = $1', [email]);
+        if (rows.length > 0) {
             return res.status(400).json({ message: 'El correo electrónico ya está registrado.' });
         }
 
         // Encriptar la contraseña
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // Crear el nuevo usuario
-        const newUser = new Usuario({ nombre, email, password: hashedPassword, rol });
+        // Insertar el nuevo usuario
+        await pool.query(
+            'INSERT INTO usuarios (nombre, email, password, rol) VALUES ($1, $2, $3, $4)',
+            [nombre, email, hashedPassword, rol]
+        );
 
-        // Guardar el nuevo usuario en la base de datos
-        await newUser.save();
         res.status(201).json({ message: 'Usuario registrado exitosamente' });
     } catch (error) {
+        console.error('Error al registrar usuario:', error);
         res.status(500).json({ message: 'Error en el servidor', error: error.message });
     }
 };

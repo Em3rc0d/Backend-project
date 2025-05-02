@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const Usuario = require('../models/usuario');
 require('dotenv').config();
+const { pool } = require('../config/database');
 
 const MESSAGES = {
     TOKEN_MISSING: 'Token no proporcionado',
@@ -27,18 +28,32 @@ const verifyToken = (req, res, next) => {
 };
 
 // Middleware para verificar roles específicos
+// Middleware para verificar roles específicos
 const verifyRole = (roles) => {
     return async (req, res, next) => {
         try {
-            const userId = req.userId;  // Usar el ID de usuario del middleware anterior
+            const userId = req.userId;  // Obtener el userId del token
+
+            // Log para verificar si userId es correcto
+            console.log(`Verificando rol para el usuario con ID: ${userId}`);
 
             // Buscar usuario en la base de datos
-            const user = await Usuario.findById(userId);
-            if (!user || !roles.includes(user.rol)) {
+            const { rows } = await pool.query('SELECT * FROM usuarios WHERE id = $1', [userId]);
+            const user = rows[0];
+
+            // Si no se encuentra el usuario
+            if (!user) {
+                return res.status(404).json({ message: 'Usuario no encontrado' });
+            }
+
+            console.log('Usuario encontrado:', user);
+
+            // Verificar que el rol del usuario esté permitido
+            if (!roles.includes(user.rol)) {
                 return res.status(403).json({ message: MESSAGES.ROLE_INSUFFICIENT });
             }
 
-            req.userRol = user.rol; // Almacenar el rol del usuario
+            req.userRol = user.rol;  // Almacenar el rol del usuario
             next();
         } catch (error) {
             console.error("Error en verifyRole:", error);
@@ -46,5 +61,6 @@ const verifyRole = (roles) => {
         }
     };
 };
+
 
 module.exports = { verifyToken, verifyRole };

@@ -1,33 +1,40 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const {sequelize} = require('../config/database');
+const Categoria = require('./categoria');
+const Proveedor = require('./proveedor');
 
-const ProductoSchema = new mongoose.Schema({
-    nombre: { 
-        type: String, 
-        required: [true, 'El nombre del producto es obligatorio.'], 
-        unique: true // Garantiza que los nombres sean únicos en la base de datos
+const Producto = sequelize.define('Producto', {
+    nombre: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        unique: true,
     },
-    precio_unitario: { 
-        type: Number, 
-        required: [true, 'El precio unitario es obligatorio.'], 
-        min: [0, 'El precio no puede ser negativo.'] 
+    precio_unitario: {
+        type: DataTypes.FLOAT,
+        allowNull: false,
+        validate: {
+            min: 0,
+        },
     },
-    cantidad_stock: { 
-        type: Number, 
-        required: [true, 'La cantidad en stock es obligatoria.'], 
-        min: [0, 'La cantidad en stock no puede ser negativa.'], 
-        default: 0 
+    cantidad_stock: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0,
+        validate: {
+            min: 0,
+        },
     },
-    categoria: { 
-        type: String, 
-        required: [true, 'La categoría es obligatoria.'] 
+    categoria: {
+        type: DataTypes.STRING,
+        allowNull: false,
     },
-    proveedor: { 
-        type: String, 
-        required: [true, 'El proveedor es obligatorio.'] 
+    proveedor: {
+        type: DataTypes.STRING,
+        allowNull: false,
     },
 });
 
-// Crear un índice único en el campo `nombre`
-ProductoSchema.index({ nombre: 1 }, { unique: true });
+Producto.belongsTo(Categoria, { foreignKey: 'categoria' });
+Producto.belongsTo(Proveedor, { foreignKey: 'proveedor' });
 
-module.exports = mongoose.model('Producto', ProductoSchema);
+module.exports = Producto;

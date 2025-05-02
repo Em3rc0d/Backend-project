@@ -1,55 +1,31 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const { sequelize } = require('../config/database'); 
+const Factura = require('./factura');
 
-const VentaSchema = new mongoose.Schema({
-    cliente: { 
-        type: String, 
-        required: [true, 'El nombre del cliente es obligatorio.'] 
+const Venta = sequelize.define('Venta', {
+    cliente: {
+        type: DataTypes.STRING,
+        allowNull: false,
     },
-    fecha: { 
-        type: Date, 
-        default: Date.now 
+    fecha: {
+        type: DataTypes.DATE,
+        defaultValue: DataTypes.NOW,
     },
-    estado: { 
-        type: String, 
-        enum: ['pendiente', 'completada', 'cancelada'], 
-        default: 'pendiente' 
+    estado: {
+        type: DataTypes.ENUM('pendiente', 'completada', 'cancelada'),
+        defaultValue: 'pendiente',
     },
-    total: { 
-        type: Number, 
-        required: [true, 'El total de la venta es obligatorio.'], 
-        min: [0, 'El total no puede ser negativo.'] 
-    },
-    productos: [
-        {
-            nombre: { 
-                type: String, 
-                required: [true, 'El nombre del producto es obligatorio.'] 
-            },
-            productoId: { 
-                type: mongoose.Schema.Types.ObjectId, 
-                ref: 'Producto', 
-                required: [true, 'El ID del producto es obligatorio.'] 
-            },
-            cantidad: { 
-                type: Number, 
-                required: [true, 'La cantidad del producto es obligatoria.'], 
-                min: [1, 'La cantidad debe ser al menos 1.'] 
-            },
-            precio_unitario: { 
-                type: Number, 
-                required: [true, 'El precio unitario del producto es obligatorio.'], 
-                min: [0, 'El precio unitario no puede ser negativo.'] 
-            },
-            subtotal: { 
-                type: Number, 
-                required: [true, 'El subtotal del producto es obligatorio.'], 
-                min: [0, 'El subtotal no puede ser negativo.'] 
-            },
+    total: {
+        type: DataTypes.FLOAT,
+        allowNull: false,
+        validate: {
+            min: 0,
         },
-    ],
+    },
+    productos: {
+        type: DataTypes.JSONB, // Usamos JSONB para guardar array de productos
+    },
 });
+Venta.hasMany(Factura, { foreignKey: 'ventaId' });
 
-// Crear un índice para optimizar consultas basadas en clientes
-VentaSchema.index({ cliente: 1 });
-
-module.exports = mongoose.model('Venta', VentaSchema);
+module.exports = Venta;

@@ -1,13 +1,13 @@
-const mongoose = require("mongoose");
-const Venta = require("../models/venta");
-const Producto = require("../models/producto");
+const { pool } = require('../config/database');
+const Producto = require('../models/producto');
 
 // Obtener todas las ventas
 exports.obtenerVentas = async (req, res) => {
     try {
-        const ventas = await Venta.find().populate("productos.productoId", "nombre precio_unitario");
-        res.status(200).json(ventas);
+        const { rows } = await pool.query('SELECT * FROM ventas');
+        res.status(200).json(rows);
     } catch (error) {
+        console.error('Error al obtener ventas:', error);
         res.status(500).json({ message: error.message });
     }
 };
@@ -29,10 +29,11 @@ exports.crearVenta = async (req, res) => {
         cantidad,
     }));
 
-    const session = await mongoose.startSession();
-    session.startTransaction();
+    const client = await pool.connect();
 
     try {
+        await client.query('BEGIN');  // Iniciar transacción
+
         const detalleProductos = [];
         let total = 0;
 
@@ -43,106 +44,130 @@ exports.crearVenta = async (req, res) => {
             }
 
             // Buscar producto en la base de datos
-            const producto = await Producto.findById(item.productoId).session(session);
+            const { rows: producto } = await client.query('SELECT * FROM productos WHERE id = $1', [item.productoId]);
 
-            if (!producto) {
+            if (producto.length === 0) {
                 throw new Error(`Producto con ID ${item.productoId} no encontrado.`);
             }
 
             // Validar stock
-            if (producto.cantidad_stock < item.cantidad) {
+            if (producto[0].cantidad_stock < item.cantidad) {
                 throw new Error(
-                    `Stock insuficiente para el producto "${producto.nombre}". 
-                    Disponible: ${producto.cantidad_stock}, Requerido: ${item.cantidad}.`
+                    `Stock insuficiente para el producto "${producto[0].nombre}". 
+                    Disponible: ${producto[0].cantidad_stock}, Requerido: ${item.cantidad}.`
                 );
             }
 
             // Calcular subtotal y reducir stock
-            const subtotal = producto.precio_unitario * item.cantidad;
+            const subtotal = producto[0].precio_unitario * item.cantidad;
             total += subtotal;
-            producto.cantidad_stock -= item.cantidad;
 
-            // Guardar cambios en el producto
-            await producto.save({ session });
+            // Reducir stock
+            await client.query('UPDATE productos SET cantidad_stock = cantidad_stock - $1 WHERE id = $2', [item.cantidad, item.productoId]);
 
             // Agregar al detalle de productos
             detalleProductos.push({
-                nombre: producto.nombre,
-                productoId: producto._id,
-                precio_unitario: producto.precio_unitario,
+                nombre: producto[0].nombre,
+                productoId: producto[0].id,
+                precio_unitario: producto[0].precio_unitario,
                 cantidad: item.cantidad,
                 subtotal,
             });
         }
 
         // Crear y guardar la venta
-        const nuevaVenta = new Venta({
-            cliente,
-            productos: detalleProductos,
-            total,
-            fecha: fecha || new Date(), // Usa la fecha proporcionada o la actual
-            estado: estado || 'pendiente', // Usa el estado proporcionado o un valor por defecto
-        });
+        const { rows: nuevaVenta } = await client.query(
+            'INSERT INTO ventas (cliente, total, fecha, estado) VALUES ($1, $2, $3, $4) RETURNING id',
+            [cliente, total, fecha || new Date(), estado || 'pendiente']
+        );
 
-        const ventaGuardada = await nuevaVenta.save({ session });
+        // Guardar detalles de productos
+        for (const item of detalleProductos) {
+            await client.query(
+                'INSERT INTO detalle_ventas (venta_id, producto_id, cantidad, precio_unitario, subtotal) VALUES ($1, $2, $3, $4, $5)',
+                [nuevaVenta[0].id, item.productoId, item.cantidad, item.precio_unitario, item.subtotal]
+            );
+        }
 
-        await session.commitTransaction();
-        session.endSession();
-
-        return res.status(201).json({
+        await client.query('COMMIT');  // Confirmar transacción
+        res.status(201).json({
             message: "Venta registrada exitosamente.",
-            venta: ventaGuardada,
+            venta: nuevaVenta[0],
         });
     } catch (error) {
-        // Revertir transacción en caso de error
-        await session.abortTransaction();
-        session.endSession();
-
+        await client.query('ROLLBACK');  // Revertir transacción en caso de error
         console.error("Error al registrar la venta:", error);
-        return res.status(400).json({
+        res.status(400).json({
             message: "Error al registrar la venta.",
             error: error.message,
         });
+    } finally {
+        client.release();  // Liberar el cliente de la base de datos
     }
 };
 
 // Obtener venta por ID
 exports.obtenerVentaPorId = async (req, res) => {
     try {
-        const venta = await Venta.findById(req.params.id).populate("productos.productoId", "nombre precio_unitario");
-        if (!venta) {
+        const { rows: venta } = await pool.query(
+            'SELECT * FROM ventas WHERE id = $1', [req.params.id]
+        );
+
+        if (venta.length === 0) {
             return res.status(404).json({ message: "Venta no encontrada" });
         }
-        res.status(200).json(venta);
+
+        const { rows: detalles } = await pool.query(
+            'SELECT * FROM detalle_ventas WHERE venta_id = $1', [venta[0].id]
+        );
+
+        venta[0].detalles = detalles;
+
+        res.status(200).json(venta[0]);
     } catch (error) {
+        console.error('Error al obtener la venta:', error);
         res.status(500).json({ message: error.message });
     }
 };
 
 // Actualizar venta por ID
 exports.actualizarVenta = async (req, res) => {
-    try {
-        const { productos } = req.body;
+    const { productos } = req.body;
 
-        const venta = await Venta.findById(req.params.id);
-        if (!venta) {
+    try {
+        const { rows: venta } = await pool.query('SELECT * FROM ventas WHERE id = $1', [req.params.id]);
+
+        if (venta.length === 0) {
             return res.status(404).json({ message: "Venta no encontrada" });
         }
 
-        venta.productos = productos.map((producto) => ({
-            productoId: producto.productoId,
-            nombre: producto.nombre,
-            cantidad: producto.cantidad,
-            precio_unitario: producto.precio_unitario,
-            subtotal: producto.subtotal,
-        }));
+        let totalVenta = 0;
+        const detalles = [];
 
-        const totalVenta = venta.productos.reduce((total, producto) => total + producto.subtotal, 0);
-        venta.total = totalVenta;
+        for (const item of productos) {
+            const { rows: producto } = await pool.query('SELECT * FROM productos WHERE id = $1', [item.productoId]);
+            const subtotal = producto[0].precio_unitario * item.cantidad;
+            totalVenta += subtotal;
+            detalles.push({
+                productoId: item.productoId,
+                cantidad: item.cantidad,
+                subtotal,
+            });
+        }
 
-        const ventaActualizada = await venta.save();
-        res.status(200).json(ventaActualizada);
+        // Actualizar venta y detalles
+        await pool.query('UPDATE ventas SET total = $1 WHERE id = $2', [totalVenta, req.params.id]);
+
+        for (const detalle of detalles) {
+            await pool.query(
+                'UPDATE detalle_ventas SET cantidad = $1, subtotal = $2 WHERE venta_id = $3 AND producto_id = $4',
+                [detalle.cantidad, detalle.subtotal, req.params.id, detalle.productoId]
+            );
+        }
+
+        res.status(200).json({ message: "Venta actualizada con éxito" });
     } catch (error) {
+        console.error('Error al actualizar la venta:', error);
         res.status(400).json({ message: error.message });
     }
 };
@@ -150,12 +175,17 @@ exports.actualizarVenta = async (req, res) => {
 // Eliminar venta por ID
 exports.eliminarVenta = async (req, res) => {
     try {
-        const venta = await Venta.findByIdAndDelete(req.params.id);
-        if (!venta) {
+        const { rows: venta } = await pool.query('SELECT * FROM ventas WHERE id = $1', [req.params.id]);
+        if (venta.length === 0) {
             return res.status(404).json({ message: "Venta no encontrada" });
         }
+
+        await pool.query('DELETE FROM ventas WHERE id = $1', [req.params.id]);
+        await pool.query('DELETE FROM detalle_ventas WHERE venta_id = $1', [req.params.id]);
+
         res.status(200).json({ message: "Venta eliminada" });
     } catch (error) {
+        console.error('Error al eliminar la venta:', error);
         res.status(500).json({ message: error.message });
     }
 };
@@ -165,31 +195,44 @@ exports.filtrarVentas = async (req, res) => {
     try {
         const { tipoFiltro, fechaDesde, fechaHasta, estado, cliente, totalMinimo, totalMaximo } = req.query;
 
-        let query = {};
+        let query = 'SELECT * FROM ventas WHERE 1=1';
+        const params = [];
 
         if (tipoFiltro === "Fecha") {
-            query.fecha = {};
-            if (fechaDesde) query.fecha.$gte = new Date(fechaDesde);
-            if (fechaHasta) query.fecha.$lte = new Date(fechaHasta);
+            if (fechaDesde) {
+                query += ' AND fecha >= $' + (params.length + 1);
+                params.push(new Date(fechaDesde));
+            }
+            if (fechaHasta) {
+                query += ' AND fecha <= $' + (params.length + 1);
+                params.push(new Date(fechaHasta));
+            }
         }
 
-        if (tipoFiltro === "Estado" && estado) query.estado = estado;
-
-        if (tipoFiltro === "Cliente" && cliente) query.cliente = { $regex: cliente, $options: "i" };
-
-        if (tipoFiltro === "Total") {
-            query.total = {};
-            if (totalMinimo) query.total.$gte = parseFloat(totalMinimo);
-            if (totalMaximo) query.total.$lte = parseFloat(totalMaximo);
+        if (estado) {
+            query += ' AND estado = $' + (params.length + 1);
+            params.push(estado);
         }
 
-        if (Object.keys(query).length === 0) {
-            return res.status(400).json({ message: "No se proporcionaron criterios de filtrado válidos." });
+        if (cliente) {
+            query += ' AND cliente ILIKE $' + (params.length + 1);
+            params.push('%' + cliente + '%');
         }
-        
-        const ventas = await Venta.find(query).populate("productos.productoId", "nombre precio_unitario");
-        res.json(ventas);
+
+        if (totalMinimo) {
+            query += ' AND total >= $' + (params.length + 1);
+            params.push(parseFloat(totalMinimo));
+        }
+
+        if (totalMaximo) {
+            query += ' AND total <= $' + (params.length + 1);
+            params.push(parseFloat(totalMaximo));
+        }
+
+        const { rows } = await pool.query(query, params);
+        res.status(200).json(rows);
     } catch (error) {
+        console.error('Error al filtrar ventas:', error);
         res.status(500).json({ message: error.message });
     }
 };

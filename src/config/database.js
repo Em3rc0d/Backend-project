@@ -1,21 +1,24 @@
-const mongoose = require('mongoose');
+// config/database.js
+const { Pool } = require('pg');
+const { Sequelize } = require('sequelize');
 require('dotenv').config();
+
+const sequelize = new Sequelize(process.env.POSTGRESQL_URI, {
+    dialect: 'postgres',
+    logging: false, 
+});
+
+const pool = new Pool({
+    connectionString: process.env.POSTGRESQL_URI
+});
 
 const connectDatabase = async () => {
     try {
-        const dbURI = process.env.MONGODB_URI;
-        if (!dbURI) {
-            console.log('MongoDB URI no está definida');
-            return;
-        }
-        await mongoose.connect(dbURI, {
-            useNewUrlParser: true,
-            useUnifiedTopology: true,
-        });
-        console.log('Conexión a MongoDB exitosa');
+        await sequelize.authenticate();
+        console.log('Conexión a PostgreSQL exitosa con Sequelize');
     } catch (error) {
-        console.error('Error al conectar a la base de datos:', error);
+        console.error('Error al conectar a la base de datos con Sequelize:', error);
     }
 };
 
-module.exports = connectDatabase;
+module.exports = { connectDatabase, sequelize, pool }; 
