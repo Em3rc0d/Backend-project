@@ -1,5 +1,5 @@
 const { DataTypes } = require('sequelize');
-const {sequelize} = require('../config/database');
+const { sequelize } = require('../config/database');
 const Categoria = require('./categoria');
 const Proveedor = require('./proveedor');
 
@@ -25,12 +25,20 @@ const Producto = sequelize.define('Producto', {
         },
     },
     categoria: {
-        type: DataTypes.STRING,
+        type: DataTypes.INTEGER,
         allowNull: false,
+        references: {
+            model: Categoria,
+            key: 'id',
+        },
     },
     proveedor: {
-        type: DataTypes.STRING,
+        type: DataTypes.INTEGER,
         allowNull: false,
+        references: {
+            model: Proveedor,
+            key: 'id',
+        },
     },
 });
 
