@@ -1,4 +1,3 @@
-// config/database.js
 const { Pool } = require('pg');
 const { Sequelize } = require('sequelize');
 require('dotenv').config();

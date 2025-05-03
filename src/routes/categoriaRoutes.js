@@ -3,8 +3,7 @@ const router = express.Router();
 const categoriaController = require('../controllers/categoriaController');
 const { verifyToken, verifyRole } = require('../middleware/authMiddleware');
 
-// Rutas protegidas
-router.get('/', verifyRole(['admin', 'vendedor']), categoriaController.obtenerCategorias); // Acceso para admin y vendedor
-router.post('/', verifyRole(['admin']), categoriaController.crearCategoria); // Solo admin
+router.get('/', verifyRole(['admin', 'vendedor']), categoriaController.obtenerCategorias);
+router.post('/', verifyRole(['admin']), categoriaController.crearCategoria);
 
 module.exports = router;

@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { pool } = require('./database'); // Usamos el pool ya creado
+const { pool } = require('./database');
 
 async function initPostgres() {
     try {

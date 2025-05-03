@@ -10,9 +10,8 @@ const MESSAGES = {
     SERVER_ERROR: 'Error en el servidor',
 };
 
-// Middleware para verificar el token
 const verifyToken = (req, res, next) => {
-    const token = req.headers['authorization']?.replace('Bearer ', '');  // Obtener el token del encabezado
+    const token = req.headers['authorization']?.replace('Bearer ', '');
     if (!token) {
         return res.status(403).json({ message: MESSAGES.TOKEN_MISSING });
     }
@@ -22,38 +21,28 @@ const verifyToken = (req, res, next) => {
             return res.status(401).json({ message: MESSAGES.TOKEN_INVALID });
         }
 
-        req.userId = decoded.id; // Almacenar el ID del usuario decodificado
+        req.userId = decoded.id; 
         next();
     });
 };
 
-// Middleware para verificar roles específicos
-// Middleware para verificar roles específicos
 const verifyRole = (roles) => {
     return async (req, res, next) => {
         try {
-            const userId = req.userId;  // Obtener el userId del token
+            const userId = req.userId;  
 
-            // Log para verificar si userId es correcto
-            console.log(`Verificando rol para el usuario con ID: ${userId}`);
-
-            // Buscar usuario en la base de datos
             const { rows } = await pool.query('SELECT * FROM usuarios WHERE id = $1', [userId]);
             const user = rows[0];
 
-            // Si no se encuentra el usuario
             if (!user) {
                 return res.status(404).json({ message: 'Usuario no encontrado' });
             }
 
-            console.log('Usuario encontrado:', user);
-
-            // Verificar que el rol del usuario esté permitido
             if (!roles.includes(user.rol)) {
                 return res.status(403).json({ message: MESSAGES.ROLE_INSUFFICIENT });
             }
 
-            req.userRol = user.rol;  // Almacenar el rol del usuario
+            req.userRol = user.rol; 
             next();
         } catch (error) {
             console.error("Error en verifyRole:", error);
